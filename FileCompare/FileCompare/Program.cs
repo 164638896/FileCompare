@@ -11,8 +11,11 @@ namespace Md5Gen
     {
         static void Main(string[] args)
         {
+            string dataPath = @"./data/";
+            if (args.Length > 0) dataPath = args[0];
+
             FileCompare fileCom = new FileCompare();
-            fileCom.CompareFile(@"./md5", @"./data/");
+            fileCom.CompareFile(dataPath, @"./md5");
         }   
     }
 }

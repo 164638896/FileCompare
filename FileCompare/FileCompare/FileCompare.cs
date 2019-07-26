@@ -8,17 +8,18 @@ using System.Threading.Tasks;
 
 public class FileCompare
 {
-    private Dictionary<string, Dictionary<string, string>> mOldMd5List = new Dictionary<string, Dictionary<string, string>>();
+    private Dictionary<string, Dictionary<string, string>> mHistoryMd5List = new Dictionary<string, Dictionary<string, string>>();
     private Dictionary<string, string> mCurrMD5Dict = new Dictionary<string, string>();
     private int mCurrProgress = 0;
-
-    public void CompareFile(string md5Path, string dataPath)
+    private string mDataPath;
+    public void CompareFile(string dataPath, string md5Path)
     {
+        mDataPath = dataPath;
         ReadHistoryMD5File(md5Path);
-        ReadCurrMD5File(dataPath);
+        ReadCurrMD5File(mDataPath);
         if (CompareMD5File())
         {
-            SaveMD5File(md5Path, mCurrMD5Dict, mOldMd5List.Count);
+            SaveMD5File(md5Path, mCurrMD5Dict, mHistoryMd5List.Count);
         }
     }
 
@@ -49,7 +50,7 @@ public class FileCompare
             }
             sr.Close();
             String name = System.IO.Path.GetFileNameWithoutExtension(fileName.Name);
-            mOldMd5List.Add(name, md5Dict);
+            mHistoryMd5List.Add(name, md5Dict);
             Console.WriteLine("读入旧md5文件");
         }
 
@@ -71,7 +72,7 @@ public class FileCompare
                 continue;
             }
 
-            string fileNameShort = fileName.Substring(choosePath.Length);
+            string fileNameShort = fileName.Substring(choosePath.Length + 1);
             string md5 = Utility.GetMD5HashFromFile(fileName);
 
             mCurrMD5Dict.Add(fileNameShort, md5);
@@ -88,30 +89,32 @@ public class FileCompare
 
     private bool CompareMD5File()
     {
-        if (mOldMd5List.Count > 0)
+        if (mHistoryMd5List.Count > 0)
         {
             Dictionary<string, string> updateFileDic = new Dictionary<string, string>();
-            foreach(KeyValuePair<string, Dictionary<string, string>> oldKVP in mOldMd5List.Reverse())
+            int index = 0;
+            foreach (KeyValuePair<string, Dictionary<string, string>> hisKVP in mHistoryMd5List.Reverse())
             {
-                Dictionary<string, string> oldMd5Dict = oldKVP.Value;
+                Dictionary<string, string> historyMd5Dict = hisKVP.Value;
 
                 updateFileDic.Clear();
                 foreach (KeyValuePair<string, string> newKVP in mCurrMD5Dict)
                 {
-                    string oldValue = null;
-                    oldMd5Dict.TryGetValue(newKVP.Key, out oldValue);
-                    if (oldValue == null || oldValue != newKVP.Value)
+                    string hisValue = null;
+                    historyMd5Dict.TryGetValue(newKVP.Key, out hisValue);
+                    if (hisValue == null || hisValue != newKVP.Value)
                     {
                         // 需要更新的文件
                         updateFileDic.Add(newKVP.Key, newKVP.Value);
                     }
                 }
 
-                if (!GenUpdateInfo(updateFileDic, oldKVP.Key, mOldMd5List.Count))
+                if (!GenUpdateInfo(updateFileDic, hisKVP.Key, mHistoryMd5List.Count) && index == 0)
                 {
                     Console.WriteLine("文件没有修改");
                     return false;
                 }
+                index++;
             }
         }
 
@@ -125,7 +128,7 @@ public class FileCompare
         string toRoot = "update/" + toIndex + "/" + formIndex + "_" + toIndex;
         foreach (KeyValuePair<string, string> kvp in dict)
         {
-            string form = "data/" + kvp.Key;
+            string form = mDataPath + "/" + kvp.Key;
             string to = toRoot + "/" + kvp.Key;
 
             string path = Path.GetDirectoryName(to);
