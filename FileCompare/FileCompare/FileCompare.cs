@@ -139,7 +139,7 @@ public class FileCompare
 
         string toZIp = "update/" + toIndex + "/" + formIndex + "_" + toIndex + ".zip";
         CreateZipFile(toRoot, toZIp);
-        Utility.DelectDir(toRoot);
+        Utility.DeleteFolder(toRoot);
         return true;
     }
 

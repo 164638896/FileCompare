@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Net;
 using System.Net.Security;
 using System.Security.Cryptography.X509Certificates;
@@ -9,48 +10,102 @@ using System.Text;
 
 public class Utility
 {
-    public static void CopyDirectory(string srcPath, string destPath)
+    public static void CopyFolder(string srcPath, string dstPath, string[] excludeExtensions = null, bool overwrite = true)
     {
-        DirectoryInfo dir = new DirectoryInfo(srcPath);
-        if (dir == null || !dir.Exists)
+        if (!Directory.Exists(srcPath))
         {
-            //Debug.LogError("文件夹不存在：" + srcPath);
             Console.WriteLine("文件夹不存在：" + srcPath);
             return;
         }
 
-        if (!Directory.Exists(destPath))
+        if (!Directory.Exists(dstPath))
         {
-            Directory.CreateDirectory(destPath);
+            Directory.CreateDirectory(dstPath);
         }
 
-        FileSystemInfo[] fileinfo = dir.GetFileSystemInfos();  //获取目录下（不包含子目录）的文件和子目录
-        foreach (FileSystemInfo i in fileinfo)
+        var files = Directory.GetFiles(srcPath, "*.*", SearchOption.TopDirectoryOnly)
+            .Where(path => excludeExtensions == null || !excludeExtensions.Contains(Path.GetExtension(path)));
+
+        foreach (var file in files)
         {
-            if (i is DirectoryInfo)     //判断是否文件夹
-            {
-                if (!Directory.Exists(destPath + "/" + i.Name))
-                {
-                    Directory.CreateDirectory(destPath + "/" + i.Name);   //目标目录下不存在此文件夹即创建子文件夹
-                }
-                CopyDirectory(i.FullName, destPath + "/" + i.Name);    //递归调用复制子文件夹
-            }
-            else
-            {
-                Console.WriteLine("i.FullName:" + i.FullName + " -> " + destPath + "/" + i.Name);
-                File.Copy(i.FullName, destPath + "/" + i.Name, true);      //不是文件夹即复制文件，true表示可以覆盖同名文件
-            }
+            File.Copy(file, Path.Combine(dstPath, Path.GetFileName(file)), overwrite);
+        }
+
+        foreach (var dir in Directory.GetDirectories(srcPath))
+        {
+            CopyFolder(dir, Path.Combine(dstPath, Path.GetFileName(dir)), excludeExtensions, overwrite);
         }
     }
 
-    public static void DelectDir(string srcPath)
+    public static bool DeleteFolder(string dirSource)
     {
-        if (!Directory.Exists(srcPath))
+        try
         {
-            return;
+            if (Directory.Exists(dirSource))
+            {
+                Directory.Delete(dirSource, true);
+            }
+            return true;
         }
-        DirectoryInfo dir = new DirectoryInfo(srcPath);
-        dir.Delete(true);
+        catch(Exception ex)
+        {
+            Console.WriteLine(ex.Message);
+            return false;
+        }
+    }
+
+    //移动文件夹
+    public static bool MoveFolder(string dirSource, string dirDestination, bool replace = false)
+    {
+        try
+        {
+            if (Directory.Exists(dirSource))
+            {
+                if (replace && Directory.Exists(dirDestination))
+                {
+                    Directory.Delete(dirDestination, true);
+                }
+
+                Directory.Move(dirSource, dirDestination);
+            }
+            return true;
+
+        }
+        catch (Exception ex) // 异常处理
+        {
+            Console.WriteLine(ex.Message);
+            return false;
+        }
+
+    }
+
+    public static bool MoveFile(string fileSrc, string fileDes, bool replace = false)
+    {
+        try
+        {
+            if (File.Exists(fileSrc))
+            {
+                string root = Path.GetDirectoryName(fileDes);
+                if (!Directory.Exists(root))
+                {
+                    Directory.CreateDirectory(root);
+                }
+
+                if (replace && File.Exists(fileDes))
+                {
+                    File.Delete(fileDes);
+                }
+
+                File.Move(fileSrc, fileDes);
+            }
+            return true;
+        }
+        catch(Exception ex)
+        {
+            Console.WriteLine(ex.Message);
+            return false;
+        }
+        
     }
 
     public static string GetMD5HashFromFile(string fileName)
